@@ -8,243 +8,198 @@
 # Python
 from contextlib import suppress
 from os import sep
-from subprocess import PIPE, Popen
 from zipfile import ZIP_DEFLATED, ZipFile
 
 # Package
-from common.constants import RELEASE_DIR, START_DIR, plugin_list
+from common.constants import (
+    ALLOWED_FILETYPES,
+    EXCEPTION_FILETYPES,
+    PLUGIN_BASE_PATH,
+    RELEASE_DIR,
+    SEMANTIC_VERSIONING_COUNT,
+    START_DIR,
+)
 from common.functions import clear_screen, get_plugin
 
 # Site-package
 from configobj import ConfigObj
+from git import Repo
+from git.exc import InvalidGitRepositoryError
+
 
 # =============================================================================
 # >> GLOBAL VARIABLES
 # =============================================================================
-# Store all allowed readable data file types
-_readable_data = [
-    "ini",
-    "json",
-    "vdf",
-    "xml",
-]
-
-# Store plugin specific directories with their respective allowed file types
-allowed_filetypes = {
-    "addons/source-python/plugins/": [*_readable_data, "md", "py"],
-    "addons/source-python/data/plugins/": [*_readable_data, "md", "txt"],
-    "cfg/source-python/": [*_readable_data, "cfg", "md", "txt"],
-    "logs/source-python/": ["md", "txt"],
-    "sound/source-python/": ["md", "mp3", "wav"],
-    "resource/source-python/events/": ["md", "txt"],
-    "resource/source-python/translations/": ["md", "ini"],
-}
-
-# Store non-plugin specific directories
-#   with their respective allowed file types
-other_filetypes = {
-    "materials/": ["vmt", "vtf"],
-    "models/": ["mdl", "phy", "vtx", "vvd"],
-}
-
-# Store directories with files that fit allowed_filetypes
-#   with names that should not be included
-exception_filetypes = {
-    "resource/source-python/translations/": ["_server.ini"],
+_version_updates = {
+    1: "MAJOR",
+    2: "MINOR",
+    3: "PATCH",
+    4: None,
 }
 
 
 # =============================================================================
-# >> MAIN FUNCTION
+# >> CLASSES
 # =============================================================================
-def create_release(plugin_name=None):
-    """Verify the plugin name and create the current release."""
-    # Was no plugin name provided?
-    if plugin_name not in plugin_list:
-        print(f'Invalid plugin name "{plugin_name}"')
-        return
+class PluginReleaser:
+    plugin_repo = None
+    info_file = None
+    info = None
+    version = None
+    check_version = None
+    update_type = None
+    zip_path = None
 
-    # Get the plugin's base path
-    plugin_path = START_DIR / plugin_name
+    def __init__(self, plugin_name):
+        self.plugin_name = plugin_name
+        self.plugin_repo_path = START_DIR / self.plugin_name
 
-    plugin_path.chdir()
-    with Popen(
-        ["git", "ls-tree", "--full-tree", "-r", "HEAD"],
-        stdout=PIPE,
-    ) as output:
-        repo_files = [
-            sep + str(x).split("\\t")[1].replace("/", sep)[:~0]
-            for x in output.communicate()[0].splitlines()
-        ]
+    def validate_diff(self):
+        """Validate that the plugin does not have uncommitted changes."""
+        try:
+            self.plugin_repo = Repo(START_DIR / self.plugin_name)
+        except InvalidGitRepositoryError:
+            print(f'Plugin "{self.plugin_name}" is not a git repository.')
+            return False
 
-    START_DIR.chdir()
+        if (
+                bool(self.plugin_repo.index.diff('HEAD')) or
+                bool(self.plugin_repo.index.diff(None)) or
+                bool(self.plugin_repo.untracked_files)
+        ):
+            print(f'Plugin "{self.plugin_name}" has uncommitted changes.')
+            return False
 
-    # Does the plugin not exist?
-    if not plugin_path.is_dir():
-        print(f'Plugin "{plugin_name}" not found.')
-        return
+        return True
 
-    # Get the plugin's current version
-    info_file = plugin_path.joinpath(
-        "addons",
-        "source-python",
-        "plugins",
-        plugin_name,
-        "info.ini",
-    )
-    config_obj = ConfigObj(info_file)
-    version = config_obj["version"]
+    def validate_version_exists(self):
+        """Find if we need to update the version."""
+        self.info_file = self.plugin_repo_path.joinpath(
+            PLUGIN_BASE_PATH,
+            self.plugin_name,
+            "info.ini",
+        )
+        if not self.info_file.is_file():
+            print("No info.ini file found")
+            return False
 
-    # Was no version information found?
-    if version is None:
-        print("No version found.")
-        return
+        self.info = ConfigObj(self.info_file)
+        self.version = self.info.get("version")
+        if self.version is None:
+            print('"version" not found in info.ini')
+            return False
 
-    # Get the directory to save the release in
-    save_path = RELEASE_DIR / plugin_name
+        try:
+            self.check_version = [int(x) for x in self.version.split(".")]
+        except ValueError:
+            print(f'Invalid "version" in info.ini: "{self.version}"')
+            return False
 
-    # Create the directory if it doesn't exist
-    if not save_path.is_dir():
-        save_path.makedirs()
+        if len(self.check_version) != SEMANTIC_VERSIONING_COUNT:
+            print(f'Invalid "version" in info.ini: "{self.version}"')
+            return False
 
-    # Get the zip file location
-    zip_path = save_path / f"{plugin_name} - v{version}.zip"
+        return True
 
-    # Does the release already exist?
-    if zip_path.is_file():
-        print("Release already exists for current version.")
-        return
+    def find_new_version(self):
+        self.update_type = self.get_version_update_type()
+        if self.update_type <= SEMANTIC_VERSIONING_COUNT:
+            self.check_version[self.update_type - 1] += 1
+            self.check_version[self.update_type:] = [0] * (3 - self.update_type)
+            return True
+        return False
 
-    # Create the zip file
-    with ZipFile(zip_path, "w", ZIP_DEFLATED) as zip_file:
+    def get_version_update_type(self, previous=None):
+        """Retrieve input on which part of the version should be updated."""
+        clear_screen()
+        message = ""
+        if previous is not None:
+            message += f'Invalid value given "{previous}"\n\n'
 
-        # Loop through all allowed directories
-        for allowed_path in allowed_filetypes:
+        message += "Which type of version update should this be?\n\n"
+        for number, choice in sorted(_version_updates.items()):
+            message += f"\t({number}) {choice}\n"
 
-            # Get the full path to the directory
-            check_path = plugin_path.joinpath(*allowed_path.split("/"))
+        value = input(message + "\n").strip()
+        if not value.isdigit():
+            return self.get_version_update_type(value)
 
-            # Does the directory exist?
-            if not check_path.is_dir():
-                continue
+        value = int(value)
+        if value not in _version_updates:
+            return self.get_version_update_type(value)
 
-            # Loop through all files with the plugin's name
-            for full_file_path in _find_files(
-                check_path.files(f"{plugin_name}.*"),
-                allowed_path,
-                allowed_filetypes,
-            ):
-                relative_file_path = full_file_path.replace(plugin_path, "")
-                if relative_file_path in repo_files:
+        return value
 
-                    # Add the file to the zip
-                    _add_file(
-                        zip_file, full_file_path, relative_file_path,
-                        plugin_path,
-                    )
+    def commit_update(self):
+        self.version = self.info["version"] = ".".join(
+            map(str, self.check_version)
+        )
+        self.info.write()
+        self.plugin_repo.index.add([
+            self.info_file.filename.replace(self.plugin_repo_path, "")[1:]
+        ])
+        self.plugin_repo.index.commit(
+            f"{_version_updates[self.update_type]} version"
+            f" update ({self.version})"
+        )
+        self.plugin_repo.remotes.origin.push()
 
-            # Loop through all files within the plugin's directory
-            for full_file_path in _find_files(
-                check_path.joinpath(
-                    plugin_name,
-                ).walkfiles(),
-                allowed_path,
-                allowed_filetypes,
-            ):
+    def create_release(self):
+        """Verify the plugin name and create the current release."""
+        # Get the directory to save the release in
+        save_path = RELEASE_DIR / self.plugin_name
 
-                relative_file_path = full_file_path.replace(plugin_path, "")
-                if relative_file_path in repo_files:
+        # Create the directory if it doesn't exist
+        if not save_path.is_dir():
+            save_path.makedirs()
 
-                    # Add the file to the zip
-                    _add_file(
-                        zip_file, full_file_path, relative_file_path,
-                        plugin_path,
-                    )
+        # Get the zip file location
+        self.zip_path = save_path / f"{self.plugin_name} - v{self.version}.zip"
 
-        # Loop through all other allowed directories
-        for allowed_path in other_filetypes:
+        # Does the release already exist?
+        if self.zip_path.is_file():
+            print("Release already exists for current version.")
+            return
 
-            # Get the full path to the directory
-            check_path = plugin_path.joinpath(*allowed_path.split("/"))
+        repo_files = self.plugin_repo.git.ls_files().splitlines()
 
-            # Does the directory exist?
-            if not check_path.is_dir():
-                continue
+        # Create the zip file
+        with ZipFile(self.zip_path, "w", ZIP_DEFLATED) as zip_file:
 
-            # Loop through all files in the directory
-            for full_file_path in _find_files(
-                check_path.walkfiles(), allowed_path, other_filetypes,
-            ):
+            for repo_file in repo_files:
+                if self.validate_file_by_base_path(repo_file):
+                    self.add_file(repo_file, zip_file)
 
-                relative_file_path = full_file_path.replace(plugin_path, "")
-                if relative_file_path in repo_files:
+    @staticmethod
+    def validate_file_by_base_path(file):
+        for allowed_path in ALLOWED_FILETYPES:
+            if file.startswith(allowed_path):
+                if (
+                    allowed_path in EXCEPTION_FILETYPES and
+                    file.endswith(*EXCEPTION_FILETYPES[allowed_path])
+                ):
+                    return False
+                return True
+        return False
 
-                    # Add the file to the zip
-                    _add_file(
-                        zip_file, full_file_path, relative_file_path,
-                        plugin_path,
-                    )
+    def add_file(self, relative_file_path, zip_file):
+        """Add the given file and all parent directories to the zip."""
+        full_file_path = self.plugin_repo_path / relative_file_path
+        zip_file.write(full_file_path, relative_file_path)
+        directory = full_file_path.parent
 
-    # Print a message that everything was successful
-    print(f"Successfully created {plugin_name} version {version} release:")
-    print(f'\t"{zip_path}"\n\n')
+        # Get all parent directories to add to the zip
+        while directory != self.plugin_repo_path:
 
+            # Is the current directory not yet included in the zip?
+            current = directory.replace(
+                self.plugin_repo_path,
+                "",
+            )[1:].replace("\\", "/") + "/"
+            if current not in zip_file.namelist():
+                zip_file.write(directory, current)
 
-# =============================================================================
-# >> HELPER FUNCTIONS
-# =============================================================================
-def _find_files(generator, allowed_path, allowed_dictionary):
-    """Yield files that should be added to the zip."""
-    # Suppress FileNotFoundError in case the
-    #    plugin specific directory does not exist.
-    with suppress(FileNotFoundError):
-
-        # Loop through the files from the given generator
-        for file in generator:
-
-            # Is the current file not allowed?
-            if file.ext[1:] not in allowed_dictionary[allowed_path]:
-                continue
-
-            # Does the given directory have exceptions?
-            if allowed_path in exception_filetypes:
-
-                # Loop through the directory's exceptions
-                for exception in exception_filetypes[allowed_path]:
-
-                    # Is this file not allowed?
-                    if exception in file.name:
-                        break
-
-                # Is the file not an exception?
-                else:
-                    yield file
-
-            # Is the file allowed?
-            else:
-                yield file
-
-
-def _add_file(zip_file, full_file_path, relative_file_path, plugin_path):
-    """Add the given file and all parent directories to the zip."""
-    # Write the file to the zip
-    zip_file.write(full_file_path, relative_file_path)
-
-    # Get the file's parent directory
-    parent = full_file_path.parent
-
-    # Get all parent directories to add to the zip
-    while plugin_path != parent:
-
-        # Is the current directory not yet included in the zip?
-        current = parent.replace(plugin_path, "")[1:].replace("\\", "/") + "/"
-        if current not in zip_file.namelist():
-
-            # Add the parent directory to the zip
-            zip_file.write(parent, current)
-
-        # Get the parent's parent
-        parent = parent.parent
+            directory = directory.parent
 
 
 # =============================================================================
@@ -257,9 +212,18 @@ if __name__ == "__main__":
 
     # Was a valid plugin chosen?
     if _plugin_name is not None:
-
-        # Clear the screen
         clear_screen()
 
-        # Create a release for the chosen plugin
-        create_release(_plugin_name)
+        plugin_releaser = PluginReleaser(_plugin_name)
+        if (
+            plugin_releaser.validate_diff() and
+            plugin_releaser.validate_version_exists()
+        ):
+            if plugin_releaser.find_new_version():
+                plugin_releaser.commit_update()
+            plugin_releaser.create_release()
+            print(
+                f"Successfully created {plugin_releaser.plugin_name} version"
+                f" {plugin_releaser.version} release:\n\t"
+                f'"{plugin_releaser.zip_path}"\n\n'
+            )

@@ -19,7 +19,7 @@ from common.constants import (
     SOUND_BASE_PATH,
     START_DIR,
     TRANSLATIONS_BASE_PATH,
-    plugin_list,
+    PLUGIN_LIST,
 )
 from common.functions import clear_screen
 
@@ -157,7 +157,7 @@ def _get_plugin_name():
         )
 
     # Does the plugin already exist?
-    if name in plugin_list:
+    if name in PLUGIN_LIST:
         return _ask_retry(f'Plugin name "{name}" already exists.')
 
     return name

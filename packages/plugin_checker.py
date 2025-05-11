@@ -9,7 +9,7 @@
 from os import system
 
 # Package
-from common.constants import PLUGIN_BASE_PATH, START_DIR, plugin_list
+from common.constants import PLUGIN_BASE_PATH, START_DIR, PLUGIN_LIST
 from common.functions import clear_screen, get_plugin
 
 
@@ -19,7 +19,7 @@ from common.functions import clear_screen, get_plugin
 def check_plugin(plugin_name):
     """Check the given plugin for standards issues."""
     # Was an invalid plugin name given?
-    if plugin_name not in plugin_list:
+    if plugin_name not in PLUGIN_LIST:
         print(f'Invalid plugin name "{plugin_name}"')
         return
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
         clear_screen()
         if _plugin_name == "ALL":
-            for _plugin_name in plugin_list:
+            for _plugin_name in PLUGIN_LIST:
                 print(f'Checking plugin "{_plugin_name}"')
                 check_plugin(_plugin_name)
 

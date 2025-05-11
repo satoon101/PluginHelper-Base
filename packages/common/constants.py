@@ -49,96 +49,40 @@ SOUND_BASE_PATH = Path(environ['SOUND_BASE_PATH'])
 TRANSLATIONS_BASE_PATH = Path(environ['TRANSLATIONS_BASE_PATH'])
 PLUGIN_PRIMARY_FILES_DIR = Path(environ['PLUGIN_PRIMARY_FILES_DIR'])
 PLUGIN_ROOT_FILES_DIR = Path(environ['PLUGIN_ROOT_FILES_DIR'])
-
-# Store the author value
+LINK_BASE_DIRECTORY = Path(environ['LINK_BASE_DIRECTORY'])
 AUTHOR = environ["AUTHOR"]
-
-# Store the Source.Python repository directory
-SOURCE_PYTHON_DIR = Path(environ["SOURCE_PYTHON_DIRECTORY"].strip('"'))
-
-# Get Source.Python's addons directory
-SOURCE_PYTHON_ADDONS_DIR = SOURCE_PYTHON_DIR / "addons" / "source-python"
-
-# Get Source.Python's build directory
-SOURCE_PYTHON_BUILDS_DIR = SOURCE_PYTHON_DIR.joinpath(
-    "src",
-    "Builds",
-    "Windows" if PLATFORM == "windows" else "Linux",
-)
-
-# Get the directories to link
-source_python_directories = {
-    x.stem for x in SOURCE_PYTHON_DIR.dirs()
-    if x.stem not in ("addons", "src", ".git")
-}
-
-# Get the addons directories to link
-source_python_addons_directories = {
-    x.stem for x in SOURCE_PYTHON_DIR.joinpath(
-        "addons",
-        "source-python",
-    ).dirs() if x.stem != "bin"
-}
-
-_support = ConfigObj(START_DIR / ".plugin_helpers" / "tools" / "support.ini")
-
-supported_games = OrderedDict()
-
-_check_files = ["srcds.exe", "srcds_run", "srcds_linux"]
-
-for _directory in environ["SERVER_DIRECTORIES"].split(";"):
-    _path = Path(_directory)
-    for _check_directory in _path.dirs():
-        if not any(
-            _check_directory.joinpath(_check_file).is_file()
-            for _check_file in _check_files
-        ):
-            continue
-        for _game in _support["servers"]:
-            _game_dir = _check_directory / _support["servers"][_game]["folder"]
-            if not _game_dir.is_dir():
-                continue
-            if _game in supported_games:
-                warn(
-                    f"{_game} already assigned to {supported_games[_game]}.  "
-                    f"New path found: {_game_dir}",
-                )
-                continue
-            supported_games[_game] = {
-                "directory": _game_dir,
-                "branch": _support["servers"][_game]["branch"],
-            }
-
-for _directory in environ["STEAM_DIRECTORIES"].split(";"):
-    _path = Path(_directory) / "SteamApps"
-    for _game_type in ("common", "sourcemods"):
-        for _game in _support[_game_type]:
-            if "game" in _support[_game_type][_game]:
-                _game_dir = _path.joinpath(
-                    _game_type, _support[_game_type][_game]["game"],
-                    _support[_game_type][_game]["folder"],
-                )
-            else:
-                _game_dir = _path.joinpath(
-                    _game_type, _game, _support[_game_type][_game]["folder"])
-            if not _game_dir.is_dir():
-                continue
-            if _game in supported_games:
-                warn(
-                    f"{_game} already assigned to {supported_games[_game]}.  "
-                    f"New path found: {_game_dir}",
-                )
-                continue
-            supported_games[_game] = {
-                "directory": _game_dir,
-                "branch": _support[_game_type][_game]["branch"],
-            }
-
-# Store the Release directory
 RELEASE_DIR = Path(environ["RELEASE_DIRECTORY"])
 
+_readable_data = [
+    "ini",
+    "json",
+    "vdf",
+    "xml",
+]
+
+# Store plugin specific directories with their respective allowed file types
+ALLOWED_FILETYPES = {
+    PLUGIN_BASE_PATH: [*_readable_data, "md", "py"],
+    DATA_BASE_PATH: [*_readable_data, "md", "txt"],
+    CONFIG_BASE_PATH: [*_readable_data, "cfg", "md", "txt"],
+    LOGS_BASE_PATH: ["md", "txt"],
+    SOUND_BASE_PATH: ["md", "mp3", "wav"],
+    EVENTS_BASE_PATH: ["md", "txt"],
+    TRANSLATIONS_BASE_PATH: ["md", "ini"],
+    "materials/": ["vmt", "vtf"],
+    "models/": ["mdl", "phy", "vtx", "vvd"],
+}
+
+# Store directories with files that fit allowed_filetypes
+#   with names that should not be included
+EXCEPTION_FILETYPES = {
+    TRANSLATIONS_BASE_PATH: ["_server.ini"],
+}
+
+SEMANTIC_VERSIONING_COUNT = 3
+
 # Get a list of all plugins
-plugin_list = [
+PLUGIN_LIST = [
     x.stem for x in START_DIR.dirs()
     if not x.stem.startswith((".", "_"))
 ]

@@ -15,13 +15,7 @@ from common.constants import (
     CORE_BINARY,
     PLATFORM,
     SOURCE_BINARY,
-    SOURCE_PYTHON_ADDONS_DIR,
-    SOURCE_PYTHON_BUILDS_DIR,
-    SOURCE_PYTHON_DIR,
-    plugin_list,
-    source_python_addons_directories,
-    source_python_directories,
-    supported_games,
+    PLUGIN_LIST,
 )
 
 
@@ -39,7 +33,7 @@ def get_plugin(suffix, *, allow_all=True):
     clear_screen()
 
     # Are there any plugins?
-    if not plugin_list:
+    if not PLUGIN_LIST:
         print(f"There are no plugins to {suffix}.")
         return None
 
@@ -47,20 +41,20 @@ def get_plugin(suffix, *, allow_all=True):
     message = f"What plugin would you like to {suffix}?\n\n"
 
     # Loop through each plugin
-    for number, plugin in enumerate(plugin_list, 1):
+    for number, plugin in enumerate(PLUGIN_LIST, 1):
 
         # Add the current plugin
         message += f"\t({number}) {plugin}\n"
 
     # Add ALL to the list if it needs to be
     if allow_all:
-        message += f"\t({len(plugin_list) + 1}) ALL\n"
+        message += f"\t({len(PLUGIN_LIST) + 1}) ALL\n"
 
     # Ask which plugin to do something with
     value = input(f"{message}\n").strip()
 
     # Was a plugin name given?
-    if value in [*plugin_list, "ALL"]:
+    if value in [*PLUGIN_LIST, "ALL"]:
 
         # Return the value
         return value
@@ -72,13 +66,13 @@ def get_plugin(suffix, *, allow_all=True):
         value = int(value)
 
         # Was the value a valid plugin choice?
-        if value <= len(plugin_list):
+        if value <= len(PLUGIN_LIST):
 
             # Return the plugin by index
-            return plugin_list[value - 1]
+            return PLUGIN_LIST[value - 1]
 
         # Was ALL's choice given?
-        if value == len(plugin_list) + 1 and allow_all:
+        if value == len(PLUGIN_LIST) + 1 and allow_all:
 
             # Return ALL
             return "ALL"
