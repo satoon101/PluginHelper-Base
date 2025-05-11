@@ -140,7 +140,7 @@ def link_directory(src, dest):
     if PLATFORM == "windows":
 
         # Link using Windows format
-        system(f'mklink /d "{dest}" "{src}"')
+        system(f'mklink /J "{dest}" "{src}"')
 
     # Is this a Linux OS?
     else:
@@ -155,7 +155,7 @@ def link_file(src, dest):
     if PLATFORM == "windows":
 
         # Link using Windows format
-        system(f'mklink "{dest}" "{src}"')
+        system(f'mklink /H "{dest}" "{src}"')
 
     # Is this a Linux OS?
     else:
