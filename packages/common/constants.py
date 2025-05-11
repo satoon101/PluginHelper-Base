@@ -39,10 +39,16 @@ CORE_BINARY = f"core.{_binary}"
 
 # Store the configuration values
 START_DIR = Path(environ['STARTDIR'])
-PLUGIN_BASE_PATH = environ['PLUGIN_BASE_PATH']
-
-# Store the premade files location
-PREMADE_FILES_DIR = START_DIR / ".plugin_helpers" / "files"
+PLUGIN_BASE_PATH = Path(environ['PLUGIN_BASE_PATH'])
+CONFIG_BASE_PATH = Path(environ['CONFIG_BASE_PATH'])
+DATA_BASE_PATH = Path(environ['DATA_BASE_PATH'])
+DOCS_BASE_PATH = Path(environ['DOCS_BASE_PATH'])
+EVENTS_BASE_PATH = Path(environ['EVENTS_BASE_PATH'])
+LOGS_BASE_PATH = Path(environ['LOGS_BASE_PATH'])
+SOUND_BASE_PATH = Path(environ['SOUND_BASE_PATH'])
+TRANSLATIONS_BASE_PATH = Path(environ['TRANSLATIONS_BASE_PATH'])
+PLUGIN_PRIMARY_FILES_DIR = Path(environ['PLUGIN_PRIMARY_FILES_DIR'])
+PLUGIN_ROOT_FILES_DIR = Path(environ['PLUGIN_ROOT_FILES_DIR'])
 
 # Store the author value
 AUTHOR = environ["AUTHOR"]
