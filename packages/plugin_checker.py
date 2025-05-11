@@ -9,7 +9,7 @@
 from os import system
 
 # Package
-from common.constants import START_DIR, plugin_list
+from common.constants import PLUGIN_BASE_PATH, START_DIR, plugin_list
 from common.functions import clear_screen, get_plugin
 
 
@@ -26,9 +26,7 @@ def check_plugin(plugin_name):
     # Get the plugin's path
     plugin_path = START_DIR.joinpath(
         plugin_name,
-        "addons",
-        "source-python",
-        "plugins",
+        PLUGIN_BASE_PATH,
         plugin_name,
     )
 

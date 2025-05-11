@@ -6,6 +6,7 @@
 # >> IMPORTS
 # =============================================================================
 # Python
+import os
 from collections import OrderedDict
 from platform import system
 from warnings import warn
@@ -14,10 +15,21 @@ from warnings import warn
 from configobj import ConfigObj
 from path import Path
 
+
+# =============================================================================
+# >> HELPER CLASSES
+# =============================================================================
+class Environ:
+    def __getitem__(self, item):
+        return os.environ[item].strip('"')
+
+
+environ = Environ()
+
+
 # =============================================================================
 # >> GLOBAL VARIABLES
 # =============================================================================
-# Store the platform
 PLATFORM = system().lower()
 
 # Store the binary names
@@ -25,20 +37,18 @@ _binary = "dll" if PLATFORM == "windows" else "so"
 SOURCE_BINARY = f"source-python.{_binary}"
 CORE_BINARY = f"core.{_binary}"
 
-# Store the main directory
-START_DIR = Path(__file__).parent.parent.parent.parent
+# Store the configuration values
+START_DIR = Path(environ['STARTDIR'])
+PLUGIN_BASE_PATH = environ['PLUGIN_BASE_PATH']
 
 # Store the premade files location
 PREMADE_FILES_DIR = START_DIR / ".plugin_helpers" / "files"
 
-# Get the configuration
-config_obj = ConfigObj(START_DIR / "config.ini")
-
 # Store the author value
-AUTHOR = config_obj["AUTHOR"]
+AUTHOR = environ["AUTHOR"]
 
 # Store the Source.Python repository directory
-SOURCE_PYTHON_DIR = Path(config_obj["SOURCE_PYTHON_DIRECTORY"])
+SOURCE_PYTHON_DIR = Path(environ["SOURCE_PYTHON_DIRECTORY"].strip('"'))
 
 # Get Source.Python's addons directory
 SOURCE_PYTHON_ADDONS_DIR = SOURCE_PYTHON_DIR / "addons" / "source-python"
@@ -70,7 +80,7 @@ supported_games = OrderedDict()
 
 _check_files = ["srcds.exe", "srcds_run", "srcds_linux"]
 
-for _directory in config_obj["SERVER_DIRECTORIES"].split(";"):
+for _directory in environ["SERVER_DIRECTORIES"].split(";"):
     _path = Path(_directory)
     for _check_directory in _path.dirs():
         if not any(
@@ -93,7 +103,7 @@ for _directory in config_obj["SERVER_DIRECTORIES"].split(";"):
                 "branch": _support["servers"][_game]["branch"],
             }
 
-for _directory in config_obj["STEAM_DIRECTORIES"].split(";"):
+for _directory in environ["STEAM_DIRECTORIES"].split(";"):
     _path = Path(_directory) / "SteamApps"
     for _game_type in ("common", "sourcemods"):
         for _game in _support[_game_type]:
@@ -119,10 +129,7 @@ for _directory in config_obj["STEAM_DIRECTORIES"].split(";"):
             }
 
 # Store the Release directory
-RELEASE_DIR = Path(config_obj["RELEASE_DIRECTORY"])
-
-# Store the Python executable path
-PYTHON_EXE = config_obj["PYTHON_EXECUTABLE"]
+RELEASE_DIR = Path(environ["RELEASE_DIRECTORY"])
 
 # Get a list of all plugins
 plugin_list = [

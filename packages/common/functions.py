@@ -84,7 +84,7 @@ def get_plugin(suffix, *, allow_all=True):
             return "ALL"
 
     # If no valid choice was given, try again
-    return get_plugin(suffix, allow_all)
+    return get_plugin(suffix, allow_all=allow_all)
 
 
 def get_game():
