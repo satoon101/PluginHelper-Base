@@ -23,6 +23,9 @@ from common.constants import (
 )
 from common.functions import clear_screen
 
+# Site-package
+from jinja2 import Template
+
 # =============================================================================
 # >> GLOBAL VARIABLES
 # =============================================================================
@@ -84,14 +87,14 @@ def create_plugin(plugin_name, **options):
             plugin_path / file.name,
         )
         with file.open() as open_file:
-            file_contents = open_file.read()
+            file_contents = Template(open_file.read())
 
-        plugin_title = plugin_name.replace("_", " ").title()
-        file_contents = file_contents.format(
+        file_contents = file_contents.render(
             plugin_name=plugin_name,
-            plugin_title=plugin_title,
             author=AUTHOR,
         )
+        if not file_contents.endswith('\n'):
+            file_contents += '\n'
         new_file = plugin_path / file.name
         with new_file.open("w") as open_file:
             open_file.write(file_contents)

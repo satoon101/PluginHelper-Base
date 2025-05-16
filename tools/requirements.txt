@@ -1,3 +1,4 @@
 configobj
+jinja2
 path
 ruff
