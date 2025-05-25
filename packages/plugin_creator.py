@@ -1,4 +1,4 @@
-# ../plugin_creater.py
+# ../plugin_creator.py
 
 """Creates a plugin with its base directories and files."""
 
